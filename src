@@ -1,0 +1,184 @@
+import React from "react";
+
+const swimlanes = ["Cliente", "Sistema", "Sistema de Estoque", "Gateway de Pagamento"];
+
+// Each node: { id, label, type: start|end|action|decision|merge|fork|join|note, lane (0-3), x, y, w, h }
+const nodes = [
+  { id: "start", type: "start", lane: 0, x: 100, y: 40, label: "" },
+  { id: "login", type: "action", lane: 0, x: 60, y: 100, w: 140, h: 40, label: "Acessar totem\ne realizar login" },
+  { id: "search", type: "action", lane: 0, x: 60, y: 180, w: 140, h: 40, label: "Pesquisar peça\npor nome/código" },
+  { id: "consult_stock", type: "action", lane: 2, x: 460, y: 180, w: 140, h: 40, label: "Consultar\ndisponibilidade" },
+  { id: "d_avail", type: "decision", lane: 1, x: 280, y: 250, w: 120, h: 44, label: "Disponível?" },
+  { id: "suggest", type: "action", lane: 1, x: 280, y: 330, w: 120, h: 40, label: "Exibir sugestão\nou indisponível" },
+  { id: "show_result", type: "action", lane: 0, x: 60, y: 340, w: 140, h: 40, label: "Visualizar resultado\ne preço" },
+  { id: "add_cart", type: "action", lane: 0, x: 60, y: 420, w: 140, h: 40, label: "Selecionar quantidade\ne adicionar ao carrinho" },
+  { id: "d_more", type: "decision", lane: 1, x: 280, y: 420, w: 120, h: 44, label: "Adicionar\nmais itens?" },
+  { id: "confirm", type: "action", lane: 0, x: 60, y: 530, w: 140, h: 40, label: "Confirmar pedido\ne escolher pagamento" },
+  { id: "process_pay", type: "action", lane: 3, x: 620, y: 530, w: 140, h: 40, label: "Processar\npagamento" },
+  { id: "d_pay", type: "decision", lane: 1, x: 280, y: 600, w: 120, h: 44, label: "Pagamento\naprovado?" },
+  { id: "retry", type: "action", lane: 0, x: 60, y: 670, w: 140, h: 40, label: "Tentar novamente\nou cancelar" },
+  { id: "register", type: "action", lane: 1, x: 260, y: 670, w: 140, h: 40, label: "Registrar pedido\ne atualizar estoque" },
+  { id: "emit", type: "action", lane: 1, x: 260, y: 750, w: 140, h: 40, label: "Emitir comprovante\n(tela/e-mail/SMS)" },
+  { id: "end", type: "end", lane: 0, x: 100, y: 820, label: "" },
+];
+
+const LANE_W = 200;
+const OFFSET_X = 10;
+
+function laneX(lane) { return OFFSET_X + lane * LANE_W; }
+
+const arrows = [
+  { from: "start", to: "login" },
+  { from: "login", to: "search" },
+  { from: "search", to: "consult_stock", label: "consulta" },
+  { from: "consult_stock", to: "d_avail" },
+  { from: "d_avail", to: "suggest", label: "Não" },
+  { from: "d_avail", to: "show_result", label: "Sim" },
+  { from: "show_result", to: "add_cart" },
+  { from: "add_cart", to: "d_more" },
+  { from: "d_more", to: "search", label: "Sim" },
+  { from: "d_more", to: "confirm", label: "Não" },
+  { from: "confirm", to: "process_pay" },
+  { from: "process_pay", to: "d_pay" },
+  { from: "d_pay", to: "retry", label: "Não" },
+  { from: "d_pay", to: "register", label: "Sim" },
+  { from: "register", to: "emit" },
+  { from: "emit", to: "end" },
+];
+
+const typeColors = {
+  action: { fill: "#eff6ff", stroke: "#3b82f6", text: "#1e40af" },
+  decision: { fill: "#fefce8", stroke: "#eab308", text: "#854d0e" },
+  start: { fill: "#1d4ed8" },
+  end: { fill: "#1d4ed8" },
+};
+
+function getNodeCenter(node) {
+  if (node.type === "start" || node.type === "end") {
+    return { x: laneX(node.lane) + node.x - OFFSET_X, y: node.y };
+  }
+  return {
+    x: laneX(node.lane) + (node.x - OFFSET_X) + node.w / 2,
+    y: node.y + node.h / 2,
+  };
+}
+
+export default function ActivityDiagram() {
+  const svgW = LANE_W * 4 + OFFSET_X * 2 + 20;
+  const svgH = 870;
+
+  const getCenter = (id) => {
+    const n = nodes.find(n => n.id === id);
+    if (!n) return { x: 0, y: 0 };
+    return getNodeCenter(n);
+  };
+
+  return (
+    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+      <div className="p-6 border-b border-border">
+        <h2 className="text-lg font-bold text-foreground font-playfair">c) Diagrama de Atividades — UML</h2>
+        <p className="text-sm text-muted-foreground mt-1">Fluxo do Caso de Uso UC03 — Cadastrar Pedido</p>
+      </div>
+      <div className="overflow-x-auto p-4">
+        <svg width={svgW} height={svgH} style={{ minWidth: 500 }}>
+          <defs>
+            <marker id="arrowAct" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#64748b" />
+            </marker>
+          </defs>
+
+          {/* Swimlane headers */}
+          {swimlanes.map((lane, i) => (
+            <g key={lane}>
+              <rect x={OFFSET_X + i * LANE_W} y={0} width={LANE_W} height={30} fill={i % 2 === 0 ? "#f1f5f9" : "#e8f0fe"} stroke="#cbd5e1" strokeWidth="1" />
+              <text x={OFFSET_X + i * LANE_W + LANE_W / 2} y={20} textAnchor="middle" fontSize="11" fontWeight="700" fill="#334155">{lane}</text>
+              <rect x={OFFSET_X + i * LANE_W} y={30} width={LANE_W} height={svgH - 30} fill="none" stroke="#e2e8f0" strokeWidth="1" />
+            </g>
+          ))}
+
+          {/* Arrows */}
+          {arrows.map((arr, idx) => {
+            const from = getCenter(arr.from);
+            const to = getCenter(arr.to);
+            const midX = (from.x + to.x) / 2;
+            const midY = (from.y + to.y) / 2;
+            return (
+              <g key={idx}>
+                <line
+                  x1={from.x} y1={from.y + 8}
+                  x2={to.x} y2={to.y - 8}
+                  stroke="#94a3b8" strokeWidth="1.5"
+                  markerEnd="url(#arrowAct)"
+                />
+                {arr.label && (
+                  <text x={midX + 4} y={midY} fontSize="9" fill="#64748b" fontStyle="italic">{arr.label}</text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Nodes */}
+          {nodes.map((node) => {
+            const nx = laneX(node.lane) + (node.x - OFFSET_X);
+            if (node.type === "start") {
+              return <circle key={node.id} cx={nx} cy={node.y} r={10} fill="#1d4ed8" />;
+            }
+            if (node.type === "end") {
+              return (
+                <g key={node.id}>
+                  <circle cx={nx} cy={node.y} r={12} fill="none" stroke="#1d4ed8" strokeWidth="2" />
+                  <circle cx={nx} cy={node.y} r={8} fill="#1d4ed8" />
+                </g>
+              );
+            }
+            if (node.type === "action") {
+              const lines = node.label.split("\n");
+              return (
+                <g key={node.id}>
+                  <rect x={nx} y={node.y} width={node.w} height={node.h} rx="8"
+                    fill={typeColors.action.fill} stroke={typeColors.action.stroke} strokeWidth="1.5" />
+                  {lines.map((line, i) => (
+                    <text key={i} x={nx + node.w / 2} y={node.y + node.h / 2 + (lines.length > 1 ? (i - 0.4) * 13 : 4)}
+                      textAnchor="middle" fontSize="10" fontWeight="500" fill={typeColors.action.text}>{line}</text>
+                  ))}
+                </g>
+              );
+            }
+            if (node.type === "decision") {
+              const lines = node.label.split("\n");
+              const cx = nx + node.w / 2;
+              const cy = node.y + node.h / 2;
+              const hw = node.w / 2;
+              const hh = node.h / 2;
+              return (
+                <g key={node.id}>
+                  <polygon
+                    points={`${cx},${cy - hh} ${cx + hw},${cy} ${cx},${cy + hh} ${cx - hw},${cy}`}
+                    fill={typeColors.decision.fill} stroke={typeColors.decision.stroke} strokeWidth="1.5"
+                  />
+                  {lines.map((line, i) => (
+                    <text key={i} x={cx} y={cy + (lines.length > 1 ? (i - 0.4) * 12 : 4)}
+                      textAnchor="middle" fontSize="9" fontWeight="600" fill={typeColors.decision.text}>{line}</text>
+                  ))}
+                </g>
+              );
+            }
+            return null;
+          })}
+        </svg>
+      </div>
+      <div className="px-6 pb-5 flex flex-wrap gap-4">
+        {[
+          { color: "bg-blue-100 border border-blue-400", label: "Ação / Atividade" },
+          { color: "bg-yellow-50 border border-yellow-400", label: "Decisão" },
+          { color: "bg-blue-700", label: "Início / Fim" },
+        ].map((item, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className={`w-3 h-3 rounded ${item.color}`} />
+            <span>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
